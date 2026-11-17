@@ -1,0 +1,68 @@
+* Info
+A multi-region VOF solver with conjugate heat transfer and a gradient-based
+phase change model, derived from mulesGradFoam (OpenFOAM v2212).
+
+The only difference to mulesGradFoam is the phase change mass source. In
+mulesGradFoam it is smoothed and moved off the interface (Hardt & Wondra
+2008), which needs the parameter ~diff~. Here it is sharp, as in PSI-BOIL
+(Sato & Niceno 2013; Lal, Sato & Niceno 2015): ~mDot = qDot/hlv~ only in the
+cells cut by the alpha1 = 0.5 iso-surface.
+
+* Changes relative to mulesGradFoam
+- ~fluid/sharpMdot.H~ (replaces ~smoothQdot.H~): sharp mDot, capped so the
+  source alone cannot empty a cell of liquid (evaporation) or vapour
+  (condensation) in one step; the excess goes to face neighbours along the
+  interface normal (weights (n.nf)^2), is capped again and any remainder is
+  dropped. Logged per step in the ~sharpMdot:~ line. The ~Timeev= ... mEvap=~
+  line of mulesGradFoam is kept.
+- ~fluid/pEqn.H~: volume source ~mDot*(1/rho2 - 1/rho1)~ instead of
+  ~mDot/rho~.
+- ~fluid/alphaSuSp.H~: ~Su = -mDot/rho1~, ~Sp = 0~,
+  ~divU = div(phi) - mDot*(1/rho2 - 1/rho1)~. See the comment in the file for
+  why Sp is not used to cancel divU.
+- ~fluid/alphaSourceCheck.H~, ~fluid/liquidVolumeBalance.H~: per-step check
+  of the cap at the actual deltaT and the global liquid volume balance of the
+  alpha step (~liquidVolumeBalance:~ line).
+- ~fluid/continuityError.H~: additionally reports the volume continuity error
+  ~div(phi) - mDot*(1/rho2 - 1/rho1)~.
+- ~mDot~ is optional in the start time directory (read if present, needed on
+  restart); ~diff~ is no longer read.
+- Alpha sub-cycling is allowed; the liquid volume balance uses the alpha
+  flux averaged over the sub-cycles.
+- ~Allwmake~ builds only the solver: ~interfaceProperties/~ and
+  ~interfaceDiffFlux/~ are unchanged copies that build into the same library
+  names as mulesGradFoam's.
+
+- ~fluid/displacedPhaseFlux.H~ (included in ~fluid/VoF/alphaEqn.H~): flow
+  leaving a source cell carries the alpha1 of the receiving cell (liquid
+  towards the liquid, vapour towards the vapour), so the vapour produced stays
+  in the source cell and the cell empties before the source moves on. Switch
+  ~displacedPhaseFlux yes|no~ in the alpha solver dictionary (default yes).
+
+* Case setup
+Same as mulesGradFoam. ~nAlphaSubCycles 1~ is recommended: 3 sub-cycles gave
+the same growth, balance and interface on the spherical case, cost 11 %
+more and allowed small undershoots (min alpha1 ~ -2e-5), since mDot and the
+source cells stay fixed over the sub-cycles. ~PhaseChangeProperties~
+needs ~Tsat~ and ~hlv~.
+
+Otherwise liquid is left behind inside the bubble (alpha ~0.15 without
+displacedPhaseFlux on the 7.5 um spherical case) and drives spurious vapour
+currents (CSF on its alpha gradients):
+1. ~displacedPhaseFlux yes~ (default). Required.
+2. A sharp initial interface, e.g. ~initAlphaField~ (exact volume fraction)
+   instead of a profile smeared over several cells. Required: cells on the
+   vapour side of alpha1 = 0.5 are never source cells, so nothing removes
+   their liquid (with Hardt-Wondra the vapour produced inside the bubble
+   flushes them out). With the smeared setExprFields profile (+-1.5 dx) a
+   ring of alpha ~0.04 stayed at the initial radius.
+3. ~extremaCoeff 0.1;~ in ~solvers/"alpha.*"~. Recommended as a safeguard.
+   The MULES limiter does not let a source cell drain below the alpha1 of its
+   vapour-side neighbours (local extremum bound). With a smeared initial
+   interface those neighbours hold ~0.07, the source cell stalls there and
+   the remainder is stranded; extremaCoeff 0.1 (or 1, identical) removes
+   that. With a sharp initial interface the neighbours are 0 and
+   extremaCoeff 0 and 0.1 gave identical results. Keep it for anything that
+   can create partially filled vapour-side cells (seeding with a smeared
+   profile, bubble foot, coalescence). alpha1 stays in [0, 1] and the
+   interface did not get wider with it.

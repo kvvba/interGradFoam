@@ -1,0 +1,8 @@
+SOURCE = \
+fluid/incompressibleCourantNo.C \
+solid/solidRegionDiffNo.C \
+interfaceDiffFlux/implicitInterfaceDiffFlux/implicitInterfaceDiffFlux.C \
+interfaceDiffFlux/explicitInterfaceDiffFlux/explicitInterfaceDiffFlux.C \
+interGradFoam.C \
+
+# sources

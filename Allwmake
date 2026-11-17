@@ -1,0 +1,10 @@
+#!/bin/bash
+# Builds only the solver. interfaceProperties/ and interfaceDiffFlux/ are
+# unchanged copies from mulesGradFoam and build into the SAME library names
+# ($FOAM_USER_LIBBIN/libinterfaceProperties, libphaseChangejakub), so
+# building them here would overwrite mulesGradFoam's libraries. The solver
+# links against libinterfaceProperties built by mulesGradFoam/Allwmake; the
+# interfaceDiffFlux sources are compiled directly into the executable.
+# If these copies are ever changed, rename LIB in their Make/files first.
+cd "${0%/*}" || exit
+wmake

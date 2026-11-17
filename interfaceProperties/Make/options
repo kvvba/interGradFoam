@@ -1,0 +1,8 @@
+EXE_INC = \
+    -Wno-overloaded-virtual \
+    -I$(LIB_SRC)/transportModels/twoPhaseMixture/lnInclude \
+    -I$(LIB_SRC)/finiteVolume/lnInclude
+
+LIB_LIBS = \
+    -ltwoPhaseMixture \
+    -lfiniteVolume

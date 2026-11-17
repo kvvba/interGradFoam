@@ -1,0 +1,4 @@
+#!/bin/bash
+# See Allwmake: the libraries are shared with mulesGradFoam and not cleaned.
+cd "${0%/*}" || exit
+wclean
